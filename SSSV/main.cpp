@@ -11,14 +11,20 @@
 #include <armadillo>
 #include <stdlib.h>
 #include <time.h>
+#include "mpi.h"
 
 using namespace std;
 using namespace arma;
 
 vec runSSSV(vec h, mat J, int numOfSweeps, double temperature);
 
-int main(int argc, const char * argv[])
+int main(int argc, char * argv[])
 {
+    
+    MPI::Init(argc,argv);   //Initialize openMPI
+    int numOfThreads = MPI::COMM_WORLD.Get_size(); //Tells the total number of thread availible.
+    int node_id = MPI::COMM_WORLD.Get_rank ( ); //Gives the id of the current thread
+    
     srand(time(NULL)); //reinitialize random number generator everytime the function is called?
     //---------------------------------------------------------------//
     //Declare h and J
@@ -34,9 +40,11 @@ int main(int argc, const char * argv[])
     //---------------------------------------------------------------//
     
     int iiRuns;
-    int numOfSSSVRuns  = 1000; //Number of times SSSV should be run.
+    int totalNumOfSSSVRuns  = 1000; //Number of times SSSV should be run.
     int numOfSweeps    = 5;
     double temperature = 2.226;
+    
+    int numOfSSSVRuns = totalNumOfSSSVRuns/numOfThreads; //each thread executes a small portion of job.
     
     mat allAngles(8,numOfSSSVRuns);
     
@@ -55,6 +63,7 @@ int main(int argc, const char * argv[])
     //print how many time isolated and clustered states occured. For clustered states, add the first four column and
     //check if zero. For isolated, sum up and check if 8.
     
+    MPI::Finalize(); // clean up parallel process.
     return 0;
 }
 
