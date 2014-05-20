@@ -56,12 +56,11 @@ int main(int argc, char * argv[])
     //---------------------------------------------------------------//
     
     
-    int numOfSSSVRuns  = 1000; //Number of times SSSV should be run.
-    int numOfSweeps    = 5;
-    double temperature = 2.226;
     
+    //Find out the number of jobs that need to be done by this thread.
+    int numOfJobs = NumOfSSSVRuns/numOfThreads + ((node_id<NumOfSSSVRuns%numOfThreads)?1:0) ;
     
-    for (int iiRuns=0; iiRuns < numOfSSSVRuns;iiRuns++)
+    if(node_id!=MASTER) //if not master thread, run your share of jobs and broadcast them.
     {
         cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
         //run each job one by one, and send the result to master node.
@@ -77,13 +76,43 @@ int main(int argc, char * argv[])
         }
     }
     
-    //save the output in some file.
-    allAngles.save("allAngles.txt",raw_ascii);
-    
-    //Convert to binary vectors and save as file as well. This file is numOfRuns rows, 8 columns. (Easier to read on Mac)
-    imat allSpins = trans(conv_to<imat>::from(allAngles > datum::pi/2));
-    allSpins.save("allSpins.txt",raw_ascii);
-    
+    if(node_id==MASTER)
+    {
+        cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
+        //Run your own share of jobs.
+        mat allAngles(numOfQubits,NumOfSSSVRuns);
+        int runCount =0;
+        for(int i=0;i<numOfJobs;i++)
+        {
+            allAngles.col(runCount)=runSSSV(-h, -J, numOfSweeps, temperature);
+            runCount++;
+        }
+        //This fills up the first few rows of the allAngles array. Then, we need to fill in
+        //the rest of the data by receiving the broadcast from other arrays.
+        
+        for(int j=1;j<numOfThreads;j++)
+        {
+            //calculate number of jobs done by that node.
+            int j_NumOfJobs = NumOfSSSVRuns/numOfThreads + ((j<NumOfSSSVRuns%numOfThreads)?1:0);
+            //receive all data send from thread j, and convert it into a column of allAngles
+            for(int i=0;i<j_NumOfJobs;i++)
+            {
+                double ArrayAngles[numOfQubits];
+                MPI::COMM_WORLD.Recv(ArrayAngles, numOfQubits, MPI::DOUBLE, j, i);
+                allAngles.col(runCount) = vec(ArrayAngles,numOfQubits);
+                runCount++;
+            }
+        }
+        
+        //save the output in some file.
+        allAngles.save("allAngles.txt",raw_ascii);
+        
+        //Convert to binary vectors and save as file as well. This file is numOfRuns rows, 8 columns. (Easier to read on Mac)
+        imat allSpins = trans(conv_to<imat>::from(allAngles > datum::pi/2));
+        allSpins.save("allSpins.txt",raw_ascii);
+    }
+   
+    MPI::Finalize(); // clean up parallel process.
     return 0;
 }
 
