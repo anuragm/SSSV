@@ -32,6 +32,7 @@
 		75320A9B19257F7A001EF313 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 		75320A9D19257F91001EF313 /* libmpi_cxx.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmpi_cxx.1.dylib; path = "../../../../../../../usr/local/Cellar/open-mpi/1.8.1/lib/libmpi_cxx.1.dylib"; sourceTree = "<group>"; };
 		75320A9E19257F91001EF313 /* libmpi.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmpi.1.dylib; path = "../../../../../../../usr/local/Cellar/open-mpi/1.8.1/lib/libmpi.1.dylib"; sourceTree = "<group>"; };
+		75937098192AF6C70089C97D /* dw2schedule.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dw2schedule.txt; sourceTree = "<group>"; };
 		759CB7731924017D00EAB756 /* SSSV */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SSSV; sourceTree = BUILT_PRODUCTS_DIR; };
 		759CB7761924017D00EAB756 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		759CB7781924017D00EAB756 /* SSSV.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = SSSV.1; sourceTree = "<group>"; };
@@ -76,6 +77,7 @@
 		759CB7751924017D00EAB756 /* SSSV */ = {
 			isa = PBXGroup;
 			children = (
+				75937098192AF6C70089C97D /* dw2schedule.txt */,
 				759CB7761924017D00EAB756 /* main.cpp */,
 				759CB7781924017D00EAB756 /* SSSV.1 */,
 			);
