@@ -33,14 +33,14 @@ int main(int argc, const char * argv[])
     
     //---------------------------------------------------------------//
     
-    int iiRuns;
+    
     int numOfSSSVRuns  = 1000; //Number of times SSSV should be run.
     int numOfSweeps    = 5;
     double temperature = 2.226;
     
     mat allAngles(8,numOfSSSVRuns);
     
-    for (iiRuns=0; iiRuns < numOfSSSVRuns;iiRuns++)
+    for (int iiRuns=0; iiRuns < numOfSSSVRuns;iiRuns++)
     {
         allAngles.col(iiRuns) = runSSSV(-h,-J,numOfSweeps,temperature);
     }
@@ -51,9 +51,6 @@ int main(int argc, const char * argv[])
     //Convert to binary vectors and save as file as well. This file is numOfRuns rows, 8 columns. (Easier to read on Mac)
     imat allSpins = trans(conv_to<imat>::from(allAngles > datum::pi/2));
     allSpins.save("allSpins.txt",raw_ascii);
-    
-    //print how many time isolated and clustered states occured. For clustered states, add the first four column and
-    //check if zero. For isolated, sum up and check if 8.
     
     return 0;
 }
