@@ -13,6 +13,7 @@
 		759CB7771924017D00EAB756 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 759CB7761924017D00EAB756 /* main.cpp */; };
 		759CB7791924017D00EAB756 /* SSSV.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 759CB7781924017D00EAB756 /* SSSV.1 */; };
 		759CB780192401AD00EAB756 /* libarmadillo.4.10.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 759CB77F192401AD00EAB756 /* libarmadillo.4.10.2.dylib */; };
+		75F7A13F192D494000613498 /* runSSSV.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 75F7A13D192D494000613498 /* runSSSV.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -37,6 +38,8 @@
 		759CB7761924017D00EAB756 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		759CB7781924017D00EAB756 /* SSSV.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = SSSV.1; sourceTree = "<group>"; };
 		759CB77F192401AD00EAB756 /* libarmadillo.4.10.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libarmadillo.4.10.2.dylib; path = ../../../../../../../usr/local/Cellar/armadillo/4.100.2/lib/libarmadillo.4.10.2.dylib; sourceTree = "<group>"; };
+		75F7A13C192D460C00613498 /* runSSSV.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = runSSSV.hpp; sourceTree = "<group>"; };
+		75F7A13D192D494000613498 /* runSSSV.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = runSSSV.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +81,8 @@
 			isa = PBXGroup;
 			children = (
 				75937098192AF6C70089C97D /* dw2schedule.txt */,
+				75F7A13C192D460C00613498 /* runSSSV.hpp */,
+				75F7A13D192D494000613498 /* runSSSV.cpp */,
 				759CB7761924017D00EAB756 /* main.cpp */,
 				759CB7781924017D00EAB756 /* SSSV.1 */,
 			);
@@ -135,6 +140,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				75F7A13F192D494000613498 /* runSSSV.cpp in Sources */,
 				759CB7771924017D00EAB756 /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
