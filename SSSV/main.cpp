@@ -19,16 +19,10 @@ using namespace arma;
 
 int main(int argc, char * argv[])
 {
-    //Common parameters for all threads
-    int NumOfSSSVRuns  = 1000;  //Number of times SSSV should be run.
-    int numOfSweeps    = 500;
-    double temperature = 1.383; //Temperature used by Shin et al
-    
-    MPI::Init(argc,argv);                          //Initialize openMPI
-    int numOfThreads = MPI::COMM_WORLD.Get_size(); //Tells the total number of thread availible.
-    int node_id      = MPI::COMM_WORLD.Get_rank(); //Gives the id of the current thread
-    
-    srand(time(NULL)+node_id); //initialize random number generator differently for each node
+    //Run for each alpha=0.01:0.01:1
+    vec alpha(100);
+    for (int i=0; i<100; i++)
+        alpha(i)=0.01*(i+1);
     
     //---------------------------------------------------------------//
     int numOfQubits = 8; //identify total number of qubits in the simulation.
@@ -44,67 +38,92 @@ int main(int argc, char * argv[])
     h.subvec(0,3).fill(1); //the core qubits have local field +1
     h.subvec(4,7).fill(-1); //the ancilla qubits have local field -1
     //---------------------------------------------------------------//
+
+    MPI::Init(argc,argv);                          //Initialize openMPI
+    int numOfThreads = MPI::COMM_WORLD.Get_size(); //Tells the total number of thread availible.
+    int node_id      = MPI::COMM_WORLD.Get_rank(); //Gives the id of the current thread
+ 
+    //Common parameters for all runs
+    int NumOfSSSVRuns  = 1000;  //Number of times SSSV should be run.
+    int numOfSweeps    = 500;
+    double temperature = 1.383; //Temperature used by Shin et al
     
-    //Num of jobs done by current thread.
-    int numOfJobs = NumOfSSSVRuns/numOfThreads + ((node_id<NumOfSSSVRuns%numOfThreads)?1:0) ;
-    
-    //Load the required schedule.
     mat dw2schedule;
-    dw2schedule.load("dw2schedule.txt",raw_ascii);
+    dw2schedule.load("dw2schedule.txt",raw_ascii); //Load the required schedule.
     
-    //Auxillary threads broascast their calculations.
-    if(node_id!=MASTER)
+    for(int c_alpha=0;c_alpha<alpha.n_elem;c_alpha++) //loop over alpha
     {
-        cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
-        //run each job one by one, and send the result to master node.
-        for (int iiRuns=0; iiRuns < numOfJobs;iiRuns++)
+        srand(time(NULL)+node_id); //initialize random number generator differently for each node
+
+        vec h_alpha = alpha(c_alpha)*h; //find the scaled Hamiltonian for this run
+        mat J_alpha = alpha(c_alpha)*J;
+        
+        //Num of jobs done by current thread.
+        int numOfJobs = NumOfSSSVRuns/numOfThreads + ((node_id<NumOfSSSVRuns%numOfThreads)?1:0) ;
+        
+        //Auxillary threads broadcast their calculations.
+        if(node_id!=MASTER)
         {
-            vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
-            //convert vector to an double array of size numOfQubits
-            double ArrayAngles[numOfQubits];
-            for(int ii=0;ii<numOfQubits;ii++)
-                ArrayAngles[ii]=VecAngles(ii);
-            
-            //send the resultant array to master node
-            MPI::COMM_WORLD.Send(ArrayAngles,numOfQubits,MPI::DOUBLE,MASTER,iiRuns);
-        }
-    }
-    
-    //Master node collects the data, and saves them to disk.
-    if(node_id==MASTER)
-    {
-        cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
-        //Run master nodes jobs.
-        mat allAngles(numOfQubits,NumOfSSSVRuns);
-        int runCount =0;
-        for(int i=0;i<numOfJobs;i++)
-        {
-            allAngles.col(runCount)=runSSSV(-h, -J, numOfSweeps, temperature,dw2schedule);
-            runCount++;
-        }
-        //Receive jobs from other nodes.
-        for(int j=1;j<numOfThreads;j++)
-        {
-            //calculate number of jobs done by that node.
-            int j_NumOfJobs = NumOfSSSVRuns/numOfThreads + ((j<NumOfSSSVRuns%numOfThreads)?1:0);
-            //receive all data send from thread j, and convert it into a column of allAngles
-            for(int i=0;i<j_NumOfJobs;i++)
+            cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
+            //run each job one by one, and send the result to master node.
+            for (int iiRuns=0; iiRuns < numOfJobs;iiRuns++)
             {
+                vec VecAngles = runSSSV(-h_alpha,-J_alpha,numOfSweeps,temperature,dw2schedule);
+                //convert vector to an double array of size numOfQubits
                 double ArrayAngles[numOfQubits];
-                MPI::COMM_WORLD.Recv(ArrayAngles, numOfQubits, MPI::DOUBLE, j, i);
-                allAngles.col(runCount) = vec(ArrayAngles,numOfQubits);
+                for(int ii=0;ii<numOfQubits;ii++)
+                    ArrayAngles[ii]=VecAngles(ii);
+                
+                //send the resultant array to master node
+                int jobTag = iiRuns + NumOfSSSVRuns*c_alpha;
+                MPI::COMM_WORLD.Send(ArrayAngles,numOfQubits,MPI::DOUBLE,MASTER,jobTag);
+            }
+        } //end auxillary node work
+        
+        //Master node collects the data, and saves them to disk.
+        if(node_id==MASTER)
+        {
+            cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
+            //Run master nodes jobs.
+            mat allAngles(numOfQubits,NumOfSSSVRuns);
+            int runCount =0;
+            for(int iiRuns=0;iiRuns<numOfJobs;iiRuns++)
+            {
+                allAngles.col(runCount)=runSSSV(-h_alpha, -J_alpha, numOfSweeps, temperature,dw2schedule);
                 runCount++;
             }
-        }
-        
-        //save the output in some file.
-        allAngles.save("allAngles.txt",raw_ascii);
-        
-        //Convert to binary vectors and save as file as well. This file is numOfRuns rows, 8 columns. (Easier to read on Mac)
-        imat allSpins = trans(conv_to<imat>::from(allAngles > datum::pi/2));
-        allSpins.save("allSpins.txt",raw_ascii);
-    }
-   
+            //Receive jobs from other nodes.
+            for(int c_nodes=1;c_nodes<numOfThreads;c_nodes++)
+            {
+                //calculate number of jobs done by that node.
+                int j_NumOfJobs = NumOfSSSVRuns/numOfThreads + ((c_nodes<NumOfSSSVRuns%numOfThreads)?1:0);
+                //receive all data send from thread j, and convert it into a column of allAngles
+                for(int c_jobs=0;c_jobs<j_NumOfJobs;c_jobs++)
+                {
+                    double ArrayAngles[numOfQubits];
+                    int jobTag = NumOfSSSVRuns*c_alpha+c_jobs;
+                    MPI::COMM_WORLD.Recv(ArrayAngles, numOfQubits, MPI::DOUBLE, c_nodes, jobTag);
+                    allAngles.col(runCount) = vec(ArrayAngles,numOfQubits);
+                    runCount++;
+                }
+            }
+            
+            //save the output in file.
+            ostringstream fileToSave;
+            fileToSave.precision(3);
+            fileToSave.setf( ios::fixed, ios::floatfield ); //Pad with zeros if required.
+            fileToSave<<"angles"<<alpha(c_alpha)<<".txt";
+            allAngles.save(fileToSave.str(),raw_ascii);
+            
+            //Convert to binary vectors and save as file as well. This file is numOfRuns rows, 8 columns. (Easier to read on Mac)
+            imat allSpins = trans(conv_to<imat>::from(allAngles > datum::pi/2));
+            fileToSave.clear(); fileToSave.str("");
+            fileToSave<<"spins"<<alpha(c_alpha)<<".txt";
+            allSpins.save(fileToSave.str(),raw_ascii);
+            
+        } //end MASTER work
+    } //end of alpha loop.
+
     MPI::Finalize(); // clean up parallel process.
     return 0;
 }
