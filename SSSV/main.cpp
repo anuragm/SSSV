@@ -22,7 +22,7 @@ int main(int argc, char * argv[])
 {
     //Common parameters for all threads
     int NumOfSSSVRuns  = 1000;  //Number of times SSSV should be run.
-    int numOfSweeps    = 5;
+    int numOfSweeps    = 500;
     double temperature = 1.383; //Temperature used by Shin et al
     
     MPI::Init(argc,argv);                          //Initialize openMPI
@@ -39,6 +39,7 @@ int main(int argc, char * argv[])
     //define all the links for J
     J(0,4) = J(1,5) = J(2,6) = J(3,7) = 1; // core ancilla links
     J(0,1) = J(1,2) = J(2,3) = J(1,3) = 1; // core core links.
+    J = J + J.t();                         // make J symettric.
     
     vec h(8) ; // a column vector of eight elements.
     h.subvec(0,3).fill(1); //the core qubits have local field +1
@@ -111,8 +112,7 @@ int main(int argc, char * argv[])
 
 vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, mat schedule)
 {
-    //Assumptions: The J matrix send in is in either upper column format, or lower column format
-    //the code would fail otherwise.
+    //Assumptions: The J matrix is symettric. Or the code would output wrong results.
     
     int numOfQubits = h.n_elem;
     vec theta(numOfQubits);
@@ -131,7 +131,7 @@ vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, mat schedule)
             {
                 randomAngle = double(rand())/RAND_MAX*datum::pi;  //generate a random angle between 0 and pi
                 energyDiff =   magB * ( cos(randomAngle) - cos(theta(iiQubits)) )*(h(iiQubits) + as_scalar( J.row(iiQubits)*cos(theta) ) )
-                             - magA * ( sin(randomAngle) - sin(theta(iiQubits)));
+                             - magA * ( sin(randomAngle) - sin(theta(iiQubits)) );
                 probToFlip = exp(-energyDiff/temperature);
                 
                 if(double(rand())/RAND_MAX < probToFlip)
