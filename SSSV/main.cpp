@@ -4,8 +4,6 @@
 //  Created by Anurag Mishra on 5/14/14.
 //  Copyright (c) 2014 Anurag Mishra. All rights reserved.
 
-// I want to rewrite SSSV as C++ code so that I can run it in parallel on HPCC without too much stress.
-// For now, let's put everything in the main file. Later, we can split them into different functions.
 
 #include <iostream>
 #include <armadillo>
@@ -18,30 +16,22 @@ using namespace arma;
 
 #define MASTER 0    // defines the master thread, or the root node.
 
-vec runSSSV(vec h, mat J, int numOfSweeps, double temperature);
+vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, mat schedule);
 
 int main(int argc, char * argv[])
 {
-    //These parameters are common and known to each thread, and hence are declared before MPI is initialized.
+    //Common parameters for all threads
+    int NumOfSSSVRuns  = 1000;  //Number of times SSSV should be run.
+    int numOfSweeps    = 5;
+    double temperature = 1.383; //Temperature used by Shin et al
     
-    int NumOfSSSVRuns  = 1000; //Number of times SSSV should be run.
-    int numOfSweeps    = 50;
-    double temperature = 2.226;
-    
-    MPI::Init(argc,argv);   //Initialize openMPI
+    MPI::Init(argc,argv);                          //Initialize openMPI
     int numOfThreads = MPI::COMM_WORLD.Get_size(); //Tells the total number of thread availible.
-    int node_id = MPI::COMM_WORLD.Get_rank ( );    //Gives the id of the current thread
-    
-    //print out some debug messages
-    if(node_id==MASTER)
-    {
-        cout<<"This program is running with "<<numOfThreads<<" thread(s)."<<endl;
-        cout.flush();
-    }
+    int node_id      = MPI::COMM_WORLD.Get_rank(); //Gives the id of the current thread
     
     srand(time(NULL)+node_id); //initialize random number generator differently for each node
-    //---------------------------------------------------------------//
     
+    //---------------------------------------------------------------//
     int numOfQubits = 8; //identify total number of qubits in the simulation.
     
     //Declare h and J
@@ -55,41 +45,44 @@ int main(int argc, char * argv[])
     h.subvec(4,7).fill(-1); //the ancilla qubits have local field -1
     //---------------------------------------------------------------//
     
-    
-    
-    //Find out the number of jobs that need to be done by this thread.
+    //Num of jobs done by current thread.
     int numOfJobs = NumOfSSSVRuns/numOfThreads + ((node_id<NumOfSSSVRuns%numOfThreads)?1:0) ;
     
-    if(node_id!=MASTER) //if not master thread, run your share of jobs and broadcast them.
+    //Load the required schedule.
+    mat dw2schedule;
+    dw2schedule.load("dw2schedule.txt",raw_ascii);
+    
+    //Auxillary threads broascast their calculations.
+    if(node_id!=MASTER)
     {
         cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
         //run each job one by one, and send the result to master node.
         for (int iiRuns=0; iiRuns < numOfJobs;iiRuns++)
         {
-            vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature);
-            //convert vector V to an double array of size numOfQubits
+            vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
+            //convert vector to an double array of size numOfQubits
             double ArrayAngles[numOfQubits];
-            for(int ii=0;ii<numOfQubits;ii++) //copy the vector to a C++ array (there must be a function to do this)
+            for(int ii=0;ii<numOfQubits;ii++)
                 ArrayAngles[ii]=VecAngles(ii);
+            
             //send the resultant array to master node
-            MPI::COMM_WORLD.Send(ArrayAngles,8,MPI::DOUBLE,MASTER,iiRuns);
+            MPI::COMM_WORLD.Send(ArrayAngles,numOfQubits,MPI::DOUBLE,MASTER,iiRuns);
         }
     }
     
+    //Master node collects the data, and saves them to disk.
     if(node_id==MASTER)
     {
         cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
-        //Run your own share of jobs.
+        //Run master nodes jobs.
         mat allAngles(numOfQubits,NumOfSSSVRuns);
         int runCount =0;
         for(int i=0;i<numOfJobs;i++)
         {
-            allAngles.col(runCount)=runSSSV(-h, -J, numOfSweeps, temperature);
+            allAngles.col(runCount)=runSSSV(-h, -J, numOfSweeps, temperature,dw2schedule);
             runCount++;
         }
-        //This fills up the first few rows of the allAngles array. Then, we need to fill in
-        //the rest of the data by receiving the broadcast from other arrays.
-        
+        //Receive jobs from other nodes.
         for(int j=1;j<numOfThreads;j++)
         {
             //calculate number of jobs done by that node.
@@ -116,27 +109,22 @@ int main(int argc, char * argv[])
     return 0;
 }
 
-vec runSSSV(vec h, mat J, int numOfSweeps, double temperature)
+vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, mat schedule)
 {
     //Assumptions: The J matrix send in is in either upper column format, or lower column format
     //the code would fail otherwise.
     
     int numOfQubits = h.n_elem;
     vec theta(numOfQubits);
-    theta.fill(datum::pi/2); //Initialize angle vector to pi/2.
+    theta.fill(datum::pi/2);        //Initialize angle vector to pi/2.
     
-    //load the DW2 schedule.
-    mat dw2schedule;
-    dw2schedule.load("dw2schedule.txt",raw_ascii);
-    
-    
-    int iiTime, iiSweep, iiQubits;  //counters for time, sweep and qubit.
+    int iiTime, iiSweep, iiQubits;  //Counters for time, sweep and qubit.
                                     //Number of time steps is 1000 (just to make the thing easier for now).
     double magA, magB,randomAngle, energyDiff, probToFlip;
     
-    for(iiTime=0;iiTime<dw2schedule.n_rows;iiTime++)
+    for(iiTime=0;iiTime<schedule.n_rows;iiTime++)
     {
-        magA = dw2schedule(iiTime,1); magB = dw2schedule(iiTime,2);
+        magA = schedule(iiTime,1); magB = schedule(iiTime,2);
         for(iiSweep=0;iiSweep<numOfSweeps;iiSweep++)
         {
             for(iiQubits=0;iiQubits<numOfQubits;iiQubits++)
