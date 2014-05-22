@@ -64,15 +64,14 @@ int main(int argc, char * argv[])
         //Auxillary threads broadcast their calculations.
         if(node_id!=MASTER)
         {
-            cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
             //run each job one by one, and send the result to master node.
             for (int iiRuns=0; iiRuns < numOfJobs;iiRuns++)
             {
                 vec VecAngles = runSSSV(-h_alpha,-J_alpha,numOfSweeps,temperature,dw2schedule);
+
                 //convert vector to an double array of size numOfQubits
                 double ArrayAngles[numOfQubits];
-                for(int ii=0;ii<numOfQubits;ii++)
-                    ArrayAngles[ii]=VecAngles(ii);
+                memcpy(ArrayAngles, VecAngles.memptr(), numOfQubits*sizeof(double));
                 
                 //send the resultant array to master node
                 int jobTag = iiRuns + NumOfSSSVRuns*c_alpha;
@@ -83,7 +82,6 @@ int main(int argc, char * argv[])
         //Master node collects the data, and saves them to disk.
         if(node_id==MASTER)
         {
-            cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
             //Run master nodes jobs.
             mat allAngles(numOfQubits,NumOfSSSVRuns);
             int runCount =0;
