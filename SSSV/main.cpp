@@ -21,7 +21,7 @@ int main(int argc, char * argv[])
 {
     //Common parameters for all threads
     int NumOfSSSVRuns  = 1000;  //Number of times SSSV should be run.
-    int numOfSweeps    = 500;
+    int numOfSweeps    = 5;
     double temperature = 1.383; //Temperature used by Shin et al
     
     MPI::Init(argc,argv);                          //Initialize openMPI
@@ -62,8 +62,7 @@ int main(int argc, char * argv[])
             vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
             //convert vector to an double array of size numOfQubits
             double ArrayAngles[numOfQubits];
-            for(int ii=0;ii<numOfQubits;ii++)
-                ArrayAngles[ii]=VecAngles(ii);
+            memcpy(ArrayAngles, VecAngles.memptr(), numOfQubits*sizeof(double));
             
             //send the resultant array to master node
             MPI::COMM_WORLD.Send(ArrayAngles,numOfQubits,MPI::DOUBLE,MASTER,iiRuns);
