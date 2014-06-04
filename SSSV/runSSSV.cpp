@@ -64,6 +64,9 @@ void getSigHam(double scale, double variance, arma::vec* h, arma::mat* J)
     //core-ancilla links
     for(int i=0;i<numOfQubits/2;i++)
         (*J)(i,i+numOfQubits/2) = scale + nrand48(variance);
+    
+    //make J symettric.
+    *J = *J + J->t();
 
 }
 
