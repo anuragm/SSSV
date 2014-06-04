@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <armadillo>
+#include <random>
 #include <stdlib.h>
 #include <time.h>
 #include <mpi.h>
@@ -21,31 +22,22 @@ int main(int argc, char * argv[])
 {
     //Run for each alpha=0.01:0.01:1
     vec alpha(100);
-    for (int i=0; i<100; i++)
-        alpha(i)=0.01*(i+1);
+    for (int ii=0; ii<100; ii++)
+        alpha(ii)=0.01*(ii+1);
     
-    //---------------------------------------------------------------//
     int numOfQubits = 8; //identify total number of qubits in the simulation.
     
-    //Declare h and J
-    mat J(8,8) ; //declares a matrix J of type double, and of size 8x8
-    //define all the links for J
-    J(0,4) = J(1,5) = J(2,6) = J(3,7) = 1; // core ancilla links
-    J(0,1) = J(1,2) = J(2,3) = J(1,3) = 1; // core core links.
-    J = J + J.t();                         // make J symettric.
-    
-    vec h(8) ; // a column vector of eight elements.
-    h.subvec(0,3).fill(1); //the core qubits have local field +1
-    h.subvec(4,7).fill(-1); //the ancilla qubits have local field -1
-    //---------------------------------------------------------------//
-
     MPI::Init(argc,argv);                          //Initialize openMPI
     int numOfThreads = MPI::COMM_WORLD.Get_size(); //Tells the total number of thread availible.
     int node_id      = MPI::COMM_WORLD.Get_rank(); //Gives the id of the current thread
- 
+    
+    //Initialize h and J differently for each thread.
+    vec h(8); mat J(8,8);
+    normal_distribution<double> normDist(0,0.6); //Is a normal distribution with mean 0 and std. dev 0.6
+    
     //Common parameters for all runs
-    int NumOfSSSVRuns  = 1000;  //Number of times SSSV should be run.
-    int numOfSweeps    = 500;
+    int NumOfSSSVRuns  = 100;  //Number of times SSSV should be run.
+    int numOfSweeps    = 5;
     double temperature = 1.383; //Temperature used by Shin et al
     
     mat dw2schedule;
@@ -53,12 +45,12 @@ int main(int argc, char * argv[])
     
     for(int c_alpha=0;c_alpha<alpha.n_elem;c_alpha++) //loop over alpha
     {
-        srand(time(NULL)+node_id); //initialize random number generator differently for each node
-
-        vec h_alpha = alpha(c_alpha)*h; //find the scaled Hamiltonian for this run
-        mat J_alpha = alpha(c_alpha)*J;
+        //initialize random number generator differently for each node, and for each alpha
+        long int seed = time(NULL) + node_id;
+        srand(seed);
+        mt19937 mtGenerator(seed);
         
-        //Num of jobs done by current thread.
+        //Num of jobs to be done by current thread.
         int numOfJobs = NumOfSSSVRuns/numOfThreads + ((node_id<NumOfSSSVRuns%numOfThreads)?1:0) ;
         
         //Auxillary threads broadcast their calculations.
@@ -67,8 +59,9 @@ int main(int argc, char * argv[])
             //run each job one by one, and send the result to master node.
             for (int iiRuns=0; iiRuns < numOfJobs;iiRuns++)
             {
-                vec VecAngles = runSSSV(-h_alpha,-J_alpha,numOfSweeps,temperature,dw2schedule);
-
+                getSigHam(alpha(c_alpha), mtGenerator, normDist, &h, &J); //reinitialize couplings before every run.
+                vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
+                
                 //convert vector to an double array of size numOfQubits
                 double ArrayAngles[numOfQubits];
                 memcpy(ArrayAngles, VecAngles.memptr(), numOfQubits*sizeof(double));
@@ -83,13 +76,16 @@ int main(int argc, char * argv[])
         if(node_id==MASTER)
         {
             //Run master nodes jobs.
+            cout<<"Master thread running alpha="<<alpha(c_alpha)<<endl;
             mat allAngles(numOfQubits,NumOfSSSVRuns);
             int runCount =0;
-            for(int iiRuns=0;iiRuns<numOfJobs;iiRuns++)
+            for(int c_jobs=0;c_jobs<numOfJobs;c_jobs++)
             {
-                allAngles.col(runCount)=runSSSV(-h_alpha, -J_alpha, numOfSweeps, temperature,dw2schedule);
+                getSigHam(alpha(c_alpha), mtGenerator, normDist, &h, &J); //reinitialize couplings before every run.
+                allAngles.col(runCount)=runSSSV(-h, -J, numOfSweeps, temperature,dw2schedule);
                 runCount++;
             }
+            cout<<"Master thread is now waiting to receive other jobs "<<endl;
             //Receive jobs from other nodes.
             for(int c_nodes=1;c_nodes<numOfThreads;c_nodes++)
             {
@@ -105,7 +101,7 @@ int main(int argc, char * argv[])
                     runCount++;
                 }
             }
-            
+            cout<<"All jobs done for alpha="<<alpha(c_alpha)<<" and now writing to disk"<<endl;
             //save the output in file.
             ostringstream fileToSave;
             fileToSave.precision(3);
@@ -121,7 +117,7 @@ int main(int argc, char * argv[])
             
         } //end MASTER work
     } //end of alpha loop.
-
+    
     MPI::Finalize(); // clean up parallel process.
     return 0;
 }

@@ -43,8 +43,3 @@ vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, mat schedule)
     
     return theta;
 }
-
-void sigHam(int numOfQubits, double scale, arma::vec& h, arma::mat& J)
-{
-    
-}
