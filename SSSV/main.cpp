@@ -74,7 +74,6 @@ int main(int argc, char * argv[])
         if(node_id==MASTER)
         {
             //Run master nodes jobs.
-            cout<<"Master thread running alpha="<<alpha(c_alpha)<<endl;
             mat allAngles(numOfQubits,NumOfSSSVRuns);
             int runCount =0;
             for(int c_jobs=0;c_jobs<numOfJobs;c_jobs++)
@@ -83,7 +82,6 @@ int main(int argc, char * argv[])
                 allAngles.col(runCount)=runSSSV(-h, -J, numOfSweeps, temperature,dw2schedule);
                 runCount++;
             }
-            cout<<"Master thread is now waiting to receive other jobs "<<endl;
             //Receive jobs from other nodes.
             for(int c_nodes=1;c_nodes<numOfThreads;c_nodes++)
             {
@@ -99,7 +97,6 @@ int main(int argc, char * argv[])
                     runCount++;
                 }
             }
-            cout<<"All jobs done for alpha="<<alpha(c_alpha)<<" and now writing to disk"<<endl;
             //save the output in file.
             ostringstream fileToSave;
             fileToSave.precision(3);
