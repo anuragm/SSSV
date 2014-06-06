@@ -10,7 +10,15 @@
 
 #include <armadillo>
 
-arma::vec runSSSV(arma::vec h, arma::mat J, int numOfSweeps, double temperature, arma::mat schedule);
-void sigHam(int numOfQubits, double scale, arma::vec& h, arma::mat& J);
+//definitions
+
+arma::vec runSSSV(arma::vec h, arma::mat J, int numOfSweeps, double temperature, const arma::mat& schedule);
+void getSigHam(double scale, double variance, arma::vec* h, arma::mat* J);
+double nrand48(double variance); 
+
+//----------------------------------------------------------------------------------------//
+//template functions and classes
+
+
 
 #endif
