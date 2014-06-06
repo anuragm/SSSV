@@ -11,7 +11,7 @@
 
 using namespace arma;
 
-vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, mat schedule)
+vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, const mat& schedule)
 {
     //Assumptions: The J matrix is symettric. Or the code would output wrong results.
     

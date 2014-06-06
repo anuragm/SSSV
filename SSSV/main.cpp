@@ -32,11 +32,11 @@ int main(int argc, char * argv[])
     
     //Initialize h and J differently for each thread.
     vec h(8); mat J(8,8);
-    double noise=0.06; //gives the standard deviation of the noise to be used.
+    double noise=0.085; //gives the standard deviation of the noise to be used.
     
     //Common parameters for all runs
-    int NumOfSSSVRuns  = 1000;  //Number of times SSSV should be run.
-    int numOfSweeps    = 500;
+    int NumOfSSSVRuns  = 10000;  //Number of times SSSV should be run.
+    int numOfSweeps    = 150;
     double temperature = 1.383; //Temperature used by Shin et al
     
     mat dw2schedule;
@@ -47,7 +47,7 @@ int main(int argc, char * argv[])
         //initialize random number generator differently for each node, and for each alpha
         long int seed = time(NULL) + node_id;
         srand48(seed);
-
+        
         //Num of jobs to be done by current thread.
         int numOfJobs = NumOfSSSVRuns/numOfThreads + ((node_id<NumOfSSSVRuns%numOfThreads)?1:0) ;
         
@@ -57,6 +57,7 @@ int main(int argc, char * argv[])
             //run each job one by one, and send the result to master node.
             for (int iiRuns=0; iiRuns < numOfJobs;iiRuns++)
             {
+                h.zeros(); J.zeros(); //Initialize all the unused couplings to zero.
                 getSigHam(alpha(c_alpha), noise*noise, &h, &J); //reinitialize couplings before every run.
                 vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
                 
@@ -78,6 +79,7 @@ int main(int argc, char * argv[])
             int runCount =0;
             for(int c_jobs=0;c_jobs<numOfJobs;c_jobs++)
             {
+                h.zeros(); J.zeros(); //Initialize all the unused couplings to zero.
                 getSigHam(alpha(c_alpha), noise*noise, &h, &J); //reinitialize couplings before every run.
                 allAngles.col(runCount)=runSSSV(-h, -J, numOfSweeps, temperature,dw2schedule);
                 runCount++;

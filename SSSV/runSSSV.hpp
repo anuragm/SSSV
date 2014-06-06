@@ -12,7 +12,7 @@
 
 //definitions
 
-arma::vec runSSSV(arma::vec h, arma::mat J, int numOfSweeps, double temperature, arma::mat schedule);
+arma::vec runSSSV(arma::vec h, arma::mat J, int numOfSweeps, double temperature, const arma::mat& schedule);
 void getSigHam(double scale, double variance, arma::vec* h, arma::mat* J);
 double nrand48(double variance); 
 
