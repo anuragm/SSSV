@@ -19,10 +19,12 @@ using namespace arma;
 
 int main(int argc, char * argv[])
 {
-    //Common parameters for all threads
-    int NumOfSSSVRuns  = 1000;  //Number of times SSSV should be run.
-    int numOfSweeps    = 5;
-    double temperature = 1.383; //Temperature used by Shin et al
+    //Run for each alpha=0.01:0.01:1
+    vec alpha(100);
+    for (int ii=0; ii<100; ii++)
+        alpha(ii)=0.01*(ii+1);
+    
+    int numOfQubits = 8; //identify total number of qubits in the simulation.
     
     MPI::Init(argc,argv);                          //Initialize openMPI
     int numOfThreads = MPI::COMM_WORLD.Get_size(); //Tells the total number of thread availible.
@@ -38,24 +40,7 @@ int main(int argc, char * argv[])
     double temperature = 1.383; //Temperature used by Shin et al
     
     mat dw2schedule;
-    dw2schedule.load("dw2schedule.txt",raw_ascii);
-    
-    //Auxillary threads broascast their calculations.
-    if(node_id!=MASTER)
-    {
-        cout<<"I am thread "<<node_id<<" and I will do "<<numOfJobs<<" jobs"<<endl;
-        //run each job one by one, and send the result to master node.
-        for (int iiRuns=0; iiRuns < numOfJobs;iiRuns++)
-        {
-            vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
-            //convert vector to an double array of size numOfQubits
-            double ArrayAngles[numOfQubits];
-            memcpy(ArrayAngles, VecAngles.memptr(), numOfQubits*sizeof(double));
-            
-            //send the resultant array to master node
-            MPI::COMM_WORLD.Send(ArrayAngles,numOfQubits,MPI::DOUBLE,MASTER,iiRuns);
-        }
-    }
+    dw2schedule.load("dw2schedule.txt",raw_ascii); //Load the required schedule.
     
     for(int c_alpha=0;c_alpha<alpha.n_elem;c_alpha++) //loop over alpha
     {
