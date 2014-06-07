@@ -6,6 +6,7 @@
 //  Copyright (c) 2014 Anurag Mishra. All rights reserved.
 //
 
+#include <fstream>
 #include <armadillo>
 #include "runSSSV.hpp"
 
@@ -67,7 +68,7 @@ void getSigHam(double scale, double variance, arma::vec* h, arma::mat* J)
     
     //make J symettric.
     *J = *J + J->t();
-
+    
 }
 
 double nrand48(double variance) //generates normal number via Box-muller method
@@ -93,3 +94,57 @@ double nrand48(double variance) //generates normal number via Box-muller method
     
     return sqrt(variance*rand1)*cos(rand2); //returns one of the random number, the other is still ramianing.
 }
+
+void readHamiltonian(std::string& fileName, arma::vec* h,arma::mat* J) //Reads the Hamiltonian from a file.
+{
+    //The format is assumed to be the DW2 input format, that is,
+    //number of qubits and total number of lines in first line, and then the rest of couplings.
+    
+    std::ifstream hamFile;
+    
+    if (fileName.empty())
+        hamFile.open("hamiltonian.config");
+    else
+        hamFile.open(fileName);
+    
+    if(!hamFile.is_open()) //If file is not opened, return silently.
+    {
+        std::cout<<"cannot read from Hamiltonian file. Check if the file exists and is readable \n";
+        return;
+    }
+    
+    //Read the first line into total number of qubits and total number of lines.
+    int numOfQubit; int totalLines;
+    hamFile>>numOfQubit>>totalLines;
+    
+    h->zeros(numOfQubit); J->zeros(numOfQubit,numOfQubit); //Resize h and J to given number of qubits.
+    //Now, for each line, read the file into h and J's.
+    for (int ii=0; ii<totalLines; ii++)
+    {
+        int location1, location2;
+        hamFile>>location1>>location2;
+        if (location1==location2)
+            hamFile>>(*h)(location1);
+        else
+        {
+            //make sure J is initialized as upper triangle matrix
+            int rowLocation = (location1<location2)?location1:location2;
+            int colLocation = location1+location2-rowLocation;
+            hamFile>>(*J)(rowLocation,colLocation);
+        }
+    }
+    
+    //Done!. Care must be taken to make J symettric.
+    *J = *J + J->t();
+}
+
+
+
+
+
+
+
+
+
+
+
