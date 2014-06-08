@@ -22,7 +22,7 @@ arma::vec runSSSV(arma::vec h, arma::mat J, int numOfSweeps, double temperature,
 void getSigHam(double scale, double variance, arma::vec* h, arma::mat* J);
 
 //Returns a normal random number with mean 0, and variance taken as input. Uses drand48(), so use srand48() to initialize
-//the random number generator.
+//the random number generator. We use the Box-Muller method to generate random numbers.
 double nrand48(double variance);
 
 //Reads the Hamiltonian from a file. If fileName is omitted, it tries to read from "hamiltonian.config" from the current folder.

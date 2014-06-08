@@ -12,15 +12,12 @@
 
 #include "runSSSV.hpp"
 
-using namespace std;
-using namespace arma;
-
 #define MASTER 0    // defines the master thread, or the root node.
 
 int main(int argc, char * argv[])
 {
     //Run for each alpha=0.01:0.01:1
-    vec alpha(100);
+    arma::vec alpha(100);
     for (int ii=0; ii<100; ii++)
         alpha(ii)=0.01*(ii+1);
     
@@ -31,7 +28,7 @@ int main(int argc, char * argv[])
     int node_id      = MPI::COMM_WORLD.Get_rank(); //Gives the id of the current thread
     
     //Initialize h and J differently for each thread.
-    vec h(8); mat J(8,8);
+    arma::vec h(8); arma::mat J(8,8);
     double noise=0.085; //gives the standard deviation of the noise to be used.
     
     //Common parameters for all runs
@@ -39,8 +36,8 @@ int main(int argc, char * argv[])
     int numOfSweeps    = 150;
     double temperature = 1.383; //Temperature used by Shin et al
     
-    mat dw2schedule;
-    dw2schedule.load("dw2schedule.txt",raw_ascii); //Load the required schedule.
+    arma::mat dw2schedule;
+    dw2schedule.load("dw2schedule.txt",arma::raw_ascii); //Load the required schedule.
     
     for(int c_alpha=0;c_alpha<alpha.n_elem;c_alpha++) //loop over alpha
     {
@@ -59,7 +56,7 @@ int main(int argc, char * argv[])
             {
                 h.zeros(); J.zeros(); //Initialize all the unused couplings to zero.
                 getSigHam(alpha(c_alpha), noise*noise, &h, &J); //reinitialize couplings before every run.
-                vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
+                arma::vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
                 
                 //convert vector to an double array of size numOfQubits
                 double ArrayAngles[numOfQubits];
@@ -75,7 +72,7 @@ int main(int argc, char * argv[])
         if(node_id==MASTER)
         {
             //Run master nodes jobs.
-            mat allAngles(numOfQubits,NumOfSSSVRuns);
+            arma::mat allAngles(numOfQubits,NumOfSSSVRuns);
             int runCount =0;
             for(int c_jobs=0;c_jobs<numOfJobs;c_jobs++)
             {
@@ -95,22 +92,22 @@ int main(int argc, char * argv[])
                     double ArrayAngles[numOfQubits];
                     int jobTag = NumOfSSSVRuns*c_alpha+c_jobs;
                     MPI::COMM_WORLD.Recv(ArrayAngles, numOfQubits, MPI::DOUBLE, c_nodes, jobTag);
-                    allAngles.col(runCount) = vec(ArrayAngles,numOfQubits);
+                    allAngles.col(runCount) = arma::vec(ArrayAngles,numOfQubits);
                     runCount++;
                 }
             }
             //save the output in file.
-            ostringstream fileToSave;
+            std::ostringstream fileToSave;
             fileToSave.precision(3);
-            fileToSave.setf( ios::fixed, ios::floatfield ); //Pad with zeros if required.
+            fileToSave.setf( std::ios::fixed, std::ios::floatfield ); //Pad with zeros if required.
             fileToSave<<"angles"<<alpha(c_alpha)<<".dat";
-            allAngles.save(fileToSave.str(),raw_ascii);
+            allAngles.save(fileToSave.str(),arma::raw_ascii);
             
             //Convert to binary vectors and save as file as well. This file is numOfRuns rows, 8 columns. (Easier to read on Mac)
-            imat allSpins = trans(conv_to<imat>::from(allAngles > datum::pi/2));
+            arma::imat allSpins = trans(arma::conv_to<arma::imat>::from(allAngles > arma::datum::pi/2));
             fileToSave.clear(); fileToSave.str("");
             fileToSave<<"spins"<<alpha(c_alpha)<<".dat";
-            allSpins.save(fileToSave.str(),raw_ascii);
+            allSpins.save(fileToSave.str(),arma::raw_ascii);
             
         } //end MASTER work
     } //end of alpha loop.

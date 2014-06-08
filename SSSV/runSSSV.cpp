@@ -11,15 +11,13 @@
 #include <armadillo>
 #include "runSSSV.hpp"
 
-using namespace arma;
-
-vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, const mat& schedule)
+arma::vec runSSSV(arma::vec h, arma::mat J, int numOfSweeps, double temperature, const arma::mat& schedule)
 {
     //Assumptions: The J matrix is symettric. Or the code would output wrong results.
     
     int numOfQubits = h.n_elem;
-    vec theta(numOfQubits);
-    theta.fill(datum::pi/2);        //Initialize angle vector to pi/2.
+    arma::vec theta(numOfQubits);
+    theta.fill(arma::datum::pi/2);        //Initialize angle vector to pi/2.
     
     int iiTime, iiSweep, iiQubits;  //Counters for time, sweep and qubit.
     //Number of time steps is 1000 (just to make the thing easier for now).
@@ -32,7 +30,7 @@ vec runSSSV(vec h, mat J, int numOfSweeps, double temperature, const mat& schedu
         {
             for(iiQubits=0;iiQubits<numOfQubits;iiQubits++)
             {
-                randomAngle = drand48()*datum::pi;  //generate a random angle between 0 and pi
+                randomAngle = drand48()*arma::datum::pi;  //generate a random angle between 0 and pi
                 energyDiff =   magB * ( cos(randomAngle) - cos(theta(iiQubits)) )*(h(iiQubits) + as_scalar( J.row(iiQubits)*cos(theta) ) )
                 - magA * ( sin(randomAngle) - sin(theta(iiQubits)) );
                 probToFlip = exp(-energyDiff/temperature);
@@ -91,7 +89,7 @@ double nrand48(double variance) //generates normal number via Box-muller method
     }
     
     rand1 = -2*log(rand1);
-    rand2 = 2*datum::pi*drand48();
+    rand2 = 2*arma::datum::pi*drand48();
     
     return sqrt(variance*rand1)*cos(rand2); //returns one of the random number, the other is still ramianing.
 }
@@ -185,10 +183,3 @@ arma::vec getScalings(const std::string& fileName)
     
     return scaling; //std::vector is automatically type casted to aram::vec.
 }
-
-
-
-
-
-
-
