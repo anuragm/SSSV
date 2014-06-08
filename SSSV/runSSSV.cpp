@@ -7,6 +7,7 @@
 //
 
 #include <fstream>
+#include <vector>
 #include <armadillo>
 #include "runSSSV.hpp"
 
@@ -95,7 +96,7 @@ double nrand48(double variance) //generates normal number via Box-muller method
     return sqrt(variance*rand1)*cos(rand2); //returns one of the random number, the other is still ramianing.
 }
 
-void readHamiltonian(std::string& fileName, arma::vec* h,arma::mat* J) //Reads the Hamiltonian from a file.
+void readHamiltonian(arma::vec* h,arma::mat* J, const std::string& fileName) //Reads the Hamiltonian from a file.
 {
     //The format is assumed to be the DW2 input format, that is,
     //number of qubits and total number of lines in first line, and then the rest of couplings.
@@ -105,11 +106,12 @@ void readHamiltonian(std::string& fileName, arma::vec* h,arma::mat* J) //Reads t
     if (fileName.empty())
         hamFile.open("hamiltonian.config");
     else
-        hamFile.open(fileName);
+        hamFile.open(fileName.c_str());
     
     if(!hamFile.is_open()) //If file is not opened, return silently.
     {
-        std::cout<<"cannot read from Hamiltonian file. Check if the file exists and is readable \n";
+        std::cerr<<"cannot read from Hamiltonian file. Check if the file exists and is readable \n";
+        std::logic_error("Cannot read Hamiltonian file");
         return;
     }
     
@@ -139,8 +141,50 @@ void readHamiltonian(std::string& fileName, arma::vec* h,arma::mat* J) //Reads t
 }
 
 
+void readParameters(int* numOfSSSVRuns, int* numOfSweeps, double* temperature, double* noise, const std::string& fileName)
+{
+    std::ifstream paramFile;
+    if (fileName.empty())
+        paramFile.open("SSSV.config");
+    else
+        paramFile.open(fileName);
+    
+    if (!paramFile.is_open()) {
+        std::cerr<<"Cannot find SSSV parameters file. Check if the file exists. ";
+        throw std::logic_error("No SSSV Config file");
+        return;
+    }
+    
+    paramFile>>*numOfSSSVRuns>>*numOfSweeps>>*temperature>>*noise;
+}
 
-
+arma::vec getScalings(const std::string& fileName)
+{
+    std::ifstream scalingFile;
+    if (fileName.empty())
+        scalingFile.open("scaling.config");
+    else
+        scalingFile.open(fileName);
+    
+    if(!scalingFile.is_open()) //If file is not opened, return 1 with message.
+    {
+        std::cerr<<"couldn't read scaling file. Default scaling factor of 1 used.";
+        arma::vec scalings("1");
+        return scalings;
+    }
+    
+    double readANumber;
+    std::vector<double> scaling;
+    
+    while (true) {
+        scalingFile>>readANumber;
+        if(scalingFile.eof())
+            break;
+        scaling.push_back(readANumber);
+    }
+    
+    return scaling; //std::vector is automatically type casted to aram::vec.
+}
 
 
 
