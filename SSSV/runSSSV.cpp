@@ -166,7 +166,7 @@ arma::vec getScalings(const std::string& fileName)
     else
         scalingFile.open(fileName);
     
-    if(!scalingFile.is_open()) //If file is not opened, return 1 with message.
+    if(!scalingFile.is_open()) //If file is not opened, return 1 with warning message.
     {
         std::cerr<<"couldn't read scaling file. Default scaling factor of 1 used.";
         arma::vec scalings("1");
