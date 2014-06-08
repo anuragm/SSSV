@@ -9,6 +9,7 @@
 #include <fstream>
 #include <vector>
 #include <armadillo>
+
 #include "runSSSV.hpp"
 
 arma::vec runSSSV(arma::vec h, arma::mat J, int numOfSweeps, double temperature, const arma::mat& schedule)
@@ -145,7 +146,7 @@ void readParameters(int* numOfSSSVRuns, int* numOfSweeps, double* temperature, d
     if (fileName.empty())
         paramFile.open("SSSV.config");
     else
-        paramFile.open(fileName);
+        paramFile.open(fileName.c_str());
     
     if (!paramFile.is_open()) {
         std::cerr<<"Cannot find SSSV parameters file. Check if the file exists. ";
@@ -162,7 +163,7 @@ arma::vec getScalings(const std::string& fileName)
     if (fileName.empty())
         scalingFile.open("scaling.config");
     else
-        scalingFile.open(fileName);
+        scalingFile.open(fileName.c_str());
     
     if(!scalingFile.is_open()) //If file is not opened, return 1 with warning message.
     {
@@ -182,4 +183,21 @@ arma::vec getScalings(const std::string& fileName)
     }
     
     return scaling; //std::vector is automatically type casted to aram::vec.
+}
+
+void addNoise(arma::vec* h, arma::mat* J, const arma::vec& h_noNoise, const arma::mat& J_noNoise, double noise)
+{
+    int numOfQubits = h_noNoise.n_elem;
+    h->zeros(numOfQubits); J->zeros(numOfQubits,numOfQubits); //resize h and J to given number of qubits.
+    for (int ii=0; ii<numOfQubits; ii++)
+    {
+        if (h_noNoise(ii)!=0)
+            (*h)(ii) = h_noNoise(ii) + nrand48(noise*noise);
+        for (int jj=0; jj<numOfQubits; jj++)
+        {
+            if (J_noNoise(ii,jj)!=0)
+                (*J)(ii,jj) = J_noNoise(ii,jj)+nrand48(noise*noise);
+            
+        }
+    }
 }

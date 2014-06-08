@@ -6,8 +6,7 @@
 
 #include <iostream>
 #include <armadillo>
-#include <stdlib.h>
-#include <time.h>
+#include <ctime>
 #include <mpi.h>
 
 #include "runSSSV.hpp"
@@ -16,10 +15,8 @@
 
 int main(int argc, char * argv[])
 {
-    //Run for each alpha=0.01:0.01:1
-    arma::vec alpha(100);
-    for (int ii=0; ii<100; ii++)
-        alpha(ii)=0.01*(ii+1);
+    //Run alpha values from configuration file scaling.config
+    arma::vec alpha = getScalings();
     
     int numOfQubits = 8; //identify total number of qubits in the simulation.
     
@@ -27,14 +24,17 @@ int main(int argc, char * argv[])
     int numOfThreads = MPI::COMM_WORLD.Get_size(); //Tells the total number of thread availible.
     int node_id      = MPI::COMM_WORLD.Get_rank(); //Gives the id of the current thread
     
-    //Initialize h and J differently for each thread.
-    arma::vec h(8); arma::mat J(8,8);
-    double noise=0.085; //gives the standard deviation of the noise to be used.
+    //Initialize h and J from reading disk.
+    arma::vec h_noNoise; arma::mat J_noNoise;
+    readHamiltonian(&h_noNoise, &J_noNoise); //reads the values from hamiltonian.config
+    
     
     //Common parameters for all runs
-    int NumOfSSSVRuns  = 10000;  //Number of times SSSV should be run.
-    int numOfSweeps    = 150;
-    double temperature = 1.383; //Temperature used by Shin et al
+    int numOfSSSVRuns; //Number of times SSSV should be run.
+    int numOfSweeps;
+    double temperature; //Temperature used by Shin et al
+    double noise; //gives the standard deviation of the noise to be used.
+    readParameters(&numOfSSSVRuns, &numOfSweeps, &temperature, &noise); //reads parameters from SSSV.config.
     
     arma::mat dw2schedule;
     dw2schedule.load("dw2schedule.txt",arma::raw_ascii); //Load the required schedule.
@@ -42,11 +42,11 @@ int main(int argc, char * argv[])
     for(int c_alpha=0;c_alpha<alpha.n_elem;c_alpha++) //loop over alpha
     {
         //initialize random number generator differently for each node, and for each alpha
-        long int seed = time(NULL) + node_id;
+        long int seed = std::time(NULL) + node_id;
         srand48(seed);
         
         //Num of jobs to be done by current thread.
-        int numOfJobs = NumOfSSSVRuns/numOfThreads + ((node_id<NumOfSSSVRuns%numOfThreads)?1:0) ;
+        int numOfJobs = numOfSSSVRuns/numOfThreads + ((node_id<numOfSSSVRuns%numOfThreads)?1:0) ;
         
         //Auxillary threads broadcast their calculations.
         if(node_id!=MASTER)
@@ -54,8 +54,8 @@ int main(int argc, char * argv[])
             //run each job one by one, and send the result to master node.
             for (int iiRuns=0; iiRuns < numOfJobs;iiRuns++)
             {
-                h.zeros(); J.zeros(); //Initialize all the unused couplings to zero.
-                getSigHam(alpha(c_alpha), noise*noise, &h, &J); //reinitialize couplings before every run.
+                arma::vec h; arma::mat J;
+                addNoise(&h, &J, h_noNoise*alpha(c_alpha), J_noNoise*alpha(c_alpha), noise);
                 arma::vec VecAngles = runSSSV(-h,-J,numOfSweeps,temperature,dw2schedule);
                 
                 //convert vector to an double array of size numOfQubits
@@ -63,7 +63,7 @@ int main(int argc, char * argv[])
                 memcpy(ArrayAngles, VecAngles.memptr(), numOfQubits*sizeof(double));
                 
                 //send the resultant array to master node
-                int jobTag = iiRuns + NumOfSSSVRuns*c_alpha;
+                int jobTag = iiRuns + numOfSSSVRuns*c_alpha;
                 MPI::COMM_WORLD.Send(ArrayAngles,numOfQubits,MPI::DOUBLE,MASTER,jobTag);
             }
         } //end auxillary node work
@@ -72,12 +72,12 @@ int main(int argc, char * argv[])
         if(node_id==MASTER)
         {
             //Run master nodes jobs.
-            arma::mat allAngles(numOfQubits,NumOfSSSVRuns);
+            arma::mat allAngles(numOfQubits,numOfSSSVRuns);
             int runCount =0;
             for(int c_jobs=0;c_jobs<numOfJobs;c_jobs++)
             {
-                h.zeros(); J.zeros(); //Initialize all the unused couplings to zero.
-                getSigHam(alpha(c_alpha), noise*noise, &h, &J); //reinitialize couplings before every run.
+                arma::vec h; arma::mat J;
+                addNoise(&h, &J, h_noNoise*alpha(c_alpha), J_noNoise*alpha(c_alpha), noise);
                 allAngles.col(runCount)=runSSSV(-h, -J, numOfSweeps, temperature,dw2schedule);
                 runCount++;
             }
@@ -85,12 +85,12 @@ int main(int argc, char * argv[])
             for(int c_nodes=1;c_nodes<numOfThreads;c_nodes++)
             {
                 //calculate number of jobs done by that node.
-                int j_NumOfJobs = NumOfSSSVRuns/numOfThreads + ((c_nodes<NumOfSSSVRuns%numOfThreads)?1:0);
+                int j_NumOfJobs = numOfSSSVRuns/numOfThreads + ((c_nodes<numOfSSSVRuns%numOfThreads)?1:0);
                 //receive all data send from thread j, and convert it into a column of allAngles
                 for(int c_jobs=0;c_jobs<j_NumOfJobs;c_jobs++)
                 {
                     double ArrayAngles[numOfQubits];
-                    int jobTag = NumOfSSSVRuns*c_alpha+c_jobs;
+                    int jobTag = numOfSSSVRuns*c_alpha+c_jobs;
                     MPI::COMM_WORLD.Recv(ArrayAngles, numOfQubits, MPI::DOUBLE, c_nodes, jobTag);
                     allAngles.col(runCount) = arma::vec(ArrayAngles,numOfQubits);
                     runCount++;
@@ -103,7 +103,7 @@ int main(int argc, char * argv[])
             fileToSave<<"angles"<<alpha(c_alpha)<<".dat";
             allAngles.save(fileToSave.str(),arma::raw_ascii);
             
-            //Convert to binary vectors and save as file as well. This file is numOfRuns rows, 8 columns. (Easier to read on Mac)
+            //Convert to binary vectors and save as file as well. This file is numOfRuns rows, numOfQubit columns.
             arma::imat allSpins = trans(arma::conv_to<arma::imat>::from(allAngles > arma::datum::pi/2));
             fileToSave.clear(); fileToSave.str("");
             fileToSave<<"spins"<<alpha(c_alpha)<<".dat";

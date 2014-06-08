@@ -41,9 +41,13 @@ void readParameters(int* numOfSSSVRuns, int* numOfSweeps, double* temperature, d
 //default value of no scaling, that is, 1 is returned, with corresponding warning on console.
 arma::vec getScalings(const std::string& fileName="");
 
+//Given Ising hamiltonian parameters 'h_noNoise' and 'J_noNoise', this function return h and J, such that a noise of standard deviation
+//'noise' is added to the each of the non-zero fields and couplings.
+void addNoise(arma::vec* h, arma::mat* J, const arma::vec& h_noNoise, const arma::mat& J_noNoise, double noise);
+
+
+
 //----------------------------------------------------------------------------------------//
 //template functions and classes
-
-
 
 #endif
