@@ -18,8 +18,6 @@ int main(int argc, char * argv[])
     //Run alpha values from configuration file scaling.config
     arma::vec alpha = getScalings();
     
-    int numOfQubits = 8; //identify total number of qubits in the simulation.
-    
     MPI::Init(argc,argv);                          //Initialize openMPI
     int numOfThreads = MPI::COMM_WORLD.Get_size(); //Tells the total number of thread availible.
     int node_id      = MPI::COMM_WORLD.Get_rank(); //Gives the id of the current thread
@@ -27,17 +25,17 @@ int main(int argc, char * argv[])
     //Initialize h and J from reading disk.
     arma::vec h_noNoise; arma::mat J_noNoise;
     readHamiltonian(&h_noNoise, &J_noNoise); //reads the values from hamiltonian.config
-    
+    int numOfQubits = h_noNoise.n_elem; //identify total number of qubits in the simulation.
     
     //Common parameters for all runs
-    int numOfSSSVRuns; //Number of times SSSV should be run.
+    int numOfSSSVRuns;
     int numOfSweeps;
-    double temperature; //Temperature used by Shin et al
+    double temperature;
     double noise; //gives the standard deviation of the noise to be used.
     readParameters(&numOfSSSVRuns, &numOfSweeps, &temperature, &noise); //reads parameters from SSSV.config.
     
     arma::mat dw2schedule;
-    dw2schedule.load("dw2schedule.txt",arma::raw_ascii); //Load the required schedule.
+    dw2schedule.load("dw2schedule.txt",arma::raw_ascii); //Loads the required schedule.
     
     for(int c_alpha=0;c_alpha<alpha.n_elem;c_alpha++) //loop over alpha
     {
@@ -60,7 +58,7 @@ int main(int argc, char * argv[])
                 
                 //convert vector to an double array of size numOfQubits
                 double ArrayAngles[numOfQubits];
-                memcpy(ArrayAngles, VecAngles.memptr(), numOfQubits*sizeof(double));
+                std::memcpy(ArrayAngles, VecAngles.memptr(), numOfQubits*sizeof(double));
                 
                 //send the resultant array to master node
                 int jobTag = iiRuns + numOfSSSVRuns*c_alpha;
