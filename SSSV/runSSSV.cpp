@@ -37,8 +37,6 @@ arma::vec runSSSV(const arma::vec& h, const arma::mat& J, int numOfSweeps, doubl
         }
         
         hasConnections = true;
-        std::cout<<"Neighbors calculated and set. There are total of "<<numOfQubits<<" qubits, out of which "
-                 <<listOfQubits.size()<<" qubits are being used"<<std::endl;
     }
     
     arma::vec theta(numOfQubits);

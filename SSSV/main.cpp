@@ -69,7 +69,7 @@ int main(int argc, char * argv[])
         //Master node collects the data, and saves them to disk.
         if(node_id==MASTER)
         {
-            std::cout<<" working on alpha="<<alpha(c_alpha)<<std::endl;
+
             //Run master nodes jobs.
             arma::mat allAngles(numOfQubits,numOfSSSVRuns);
             int runCount =0;
@@ -77,12 +77,9 @@ int main(int argc, char * argv[])
             {
                 arma::vec h; arma::mat J;
                 addNoise(&h, &J, h_noNoise*alpha(c_alpha), J_noNoise*alpha(c_alpha), noise);
-                std::cout<<"Master node got a copy of Hamiltonian, now running it."<<std::endl;
                 allAngles.col(runCount)=runSSSV(h, J, numOfSweeps, temperature,dw2schedule);
-                std::cout<<"Run done"<<std::endl;
                 runCount++;
             }
-            std::cout<<"Master node is done running its own jobs."<<std::endl;
             //Receive jobs from other nodes.
             for(int c_nodes=1;c_nodes<numOfThreads;c_nodes++)
             {
@@ -93,10 +90,8 @@ int main(int argc, char * argv[])
                 {
                     double ArrayAngles[numOfQubits];
                     int jobTag = numOfSSSVRuns*c_alpha+c_jobs;
-                    std::cout<<"Master node is waiting to recieve jobTag "<<jobTag<<std::endl;
                     MPI::COMM_WORLD.Recv(ArrayAngles, numOfQubits, MPI::DOUBLE, c_nodes, jobTag);
                     allAngles.col(runCount) = arma::vec(ArrayAngles,numOfQubits);
-                    std::cout<<"Master node recieved jobTag "<<jobTag<<" and has saved it to array "<<std::endl;
                     runCount++;
                 }
             }
