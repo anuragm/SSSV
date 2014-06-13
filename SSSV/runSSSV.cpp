@@ -12,32 +12,57 @@
 
 #include "runSSSV.hpp"
 
-arma::vec runSSSV(arma::vec h, arma::mat J, int numOfSweeps, double temperature, const arma::mat& schedule)
+arma::vec runSSSV(const arma::vec& h, const arma::mat& J, int numOfSweeps, double temperature, const arma::mat& schedule, bool newHam)
 {
-    //Assumptions: The J matrix is symettric. Or the code would output wrong results.
-    
+    //Assumptions: The J matrix is symettric.
+    static bool hasConnections = false; //Remembers if we already have the underlying connections figured out.
+    static arma::uvec* neighbours ;     //array of neighbor indices
+    static std::vector<uint> listOfQubits; //list of qubits in simuation.
     int numOfQubits = h.n_elem;
+    
+    if (newHam) //If there is a new hamiltonian, recreate the connection vectors.
+    {
+        delete [] neighbours;
+        listOfQubits.clear();
+        hasConnections = false;
+    }
+    
+    if (!hasConnections) { //If we haven't calcuated connections, do so.
+        
+        neighbours = new arma::uvec[numOfQubits];
+        for (int ii=0; ii<numOfQubits; ii++){
+            neighbours[ii] = arma::find(J.row(ii)); //returns all the non-zero coupling values.
+            if (h(ii)!=0 || !neighbours[ii].is_empty())
+                listOfQubits.push_back(ii);
+        }
+        
+        hasConnections = true;
+        std::cout<<"Neighbors calculated and set. There are total of "<<numOfQubits<<" qubits, out of which "
+                 <<listOfQubits.size()<<" qubits are being used"<<std::endl;
+    }
+    
     arma::vec theta(numOfQubits);
     theta.fill(arma::datum::pi/2);        //Initialize angle vector to pi/2.
     
-    int iiTime, iiSweep, iiQubits;  //Counters for time, sweep and qubit.
     //Number of time steps is 1000 (just to make the thing easier for now).
-    double magA, magB,randomAngle, energyDiff, probToFlip;
+    double magA, magB, randomAngle, energyDiff, probToFlip;
     
-    for(iiTime=0;iiTime<schedule.n_rows;iiTime++)
+    for(int iiTime=0;iiTime<schedule.n_rows;iiTime++)
     {
         magA = schedule(iiTime,1); magB = schedule(iiTime,2);
-        for(iiSweep=0;iiSweep<numOfSweeps;iiSweep++)
+        for(int iiSweep=0;iiSweep<numOfSweeps;iiSweep++)
         {
-            for(iiQubits=0;iiQubits<numOfQubits;iiQubits++)
+            for(int ii=0;ii<listOfQubits.size();ii++)
             {
+                int iiQubit = listOfQubits[ii];
                 randomAngle = drand48()*arma::datum::pi;  //generate a random angle between 0 and pi
-                energyDiff =   magB * ( cos(randomAngle) - cos(theta(iiQubits)) )*(h(iiQubits) + as_scalar( J.row(iiQubits)*cos(theta) ) )
-                - magA * ( sin(randomAngle) - sin(theta(iiQubits)) );
+                arma::rowvec reducedJ = J.row(iiQubit);
+                energyDiff =   magB * ( cos(randomAngle) - cos(theta(iiQubit)) )*(h(iiQubit) + as_scalar( reducedJ.cols(neighbours[iiQubit])*cos(theta(neighbours[iiQubit])) ) )
+                - magA * ( sin(randomAngle) - sin(theta(iiQubit)) );
                 probToFlip = exp(-energyDiff/temperature);
                 
                 if(drand48() < probToFlip)
-                    theta(iiQubits) = randomAngle;
+                    theta(iiQubit) = randomAngle;
             }
         }
     }
