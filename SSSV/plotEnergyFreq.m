@@ -1,5 +1,5 @@
-%This file would plot the energies-frequency histogram for encCluster_100
-%hamiltonian.
+%This file would plot the energies-frequency histogram for the
+%hamiltonian. data is assumed to recide in /data/ folder.
 
 [h,J,listOfQubits] = readHamiltonian('hamiltonian.config');
 
